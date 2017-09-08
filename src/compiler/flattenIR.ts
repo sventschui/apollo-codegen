@@ -2,6 +2,8 @@ import { inspect } from 'util';
 
 import { GraphQLObjectType } from 'graphql';
 
+import { TypeCase } from '../compiler/flattenIR';
+
 import { SelectionSet, Field, BooleanCondition } from './';
 
 declare module './' {

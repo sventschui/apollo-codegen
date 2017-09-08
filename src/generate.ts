@@ -8,15 +8,25 @@ import serializeToJSON from './serializeToJSON';
 import { generateSource as generateSwiftSource } from './swift';
 import { generateSource as generateTypescriptSource } from './typescript';
 import { generateSource as generateFlowSource } from './flow';
+import { generateSource as generateFlowModernSource } from './flow-modern';
 import { generateSource as generateScalaSource } from './scala';
 
-type TargetType = 'json' | 'swift' | 'ts' | 'typescript' | 'flow' | 'scala';
+export const TargetType = {
+  json: 'json',
+  swift: 'swift',
+  ts: 'ts',
+  typescript: 'typescript',
+  flow: 'flow',
+  'flow-modern': 'flow-modern',
+  scala: 'scala'
+};
+export const TARGETS = Object.keys(TargetType);
 
 export default function generate(
   inputPaths: string[],
   schemaPath: string,
   outputPath: string,
-  target: TargetType,
+  target: keyof typeof TargetType,
   tagName: string,
   options: any
 ) {
@@ -35,7 +45,11 @@ export default function generate(
     if (options.generateOperationIds) {
       writeOperationIdsMap(context);
     }
-  } else {
+  } else if (target === 'flow-modern') {
+    options.addTypename = true;
+    const context = compileToIR(schema, document, options);
+    output = generateFlowModernSource(context);
+  } {
     const context = compileToLegacyIR(schema, document, options);
     switch (target) {
       case 'json':
