@@ -6,16 +6,17 @@ import * as path from 'path';
 import * as yargs from 'yargs';
 
 import { downloadSchema, introspectSchema, printSchema, generate } from '.';
-import { ToolError, logError } from './errors'
+import { ToolError, logError } from './errors';
+import { TARGETS } from './generate';
 
-import 'source-map-support/register'
+import 'source-map-support/register';
 
 // Make sure unhandled errors in async code are propagated correctly
 process.on('unhandledRejection', (error) => { throw error });
 
 process.on('uncaughtException', handleError);
 
-function handleError(error) {
+function handleError(error: Error) {
   logError(error);
   process.exit(1);
 }
@@ -37,7 +38,7 @@ yargs
         describe: 'Additional header to send to the server as part of the introspection query request',
         type: 'array',
         coerce: (arg) => {
-          let additionalHeaders = {};
+          let additionalHeaders: {[headerName: string]: any} = {};
           for (const header of arg) {
             const [name, value] = header.split(/\s*:\s*/);
             if (!(name && value)) {
@@ -115,7 +116,7 @@ yargs
       target: {
         demand: false,
         describe: 'Code generation target language',
-        choices: ['swift', 'scala', 'json', 'ts', 'typescript', 'flow'],
+        choices: TARGETS,
         default: 'swift'
       },
       namespace: {
@@ -166,7 +167,7 @@ yargs
       }
 
       const inputPaths = input
-        .map(input => path.resolve(input))
+        .map((input: string) => path.resolve(input))
         // Sort to normalize different glob expansions between different terminals.
         .sort();
 
