@@ -10,8 +10,8 @@
     "strict": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    // "noUnusedParameters": true,
-    // "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUnusedLocals": true,
     "allowJs": true,
     "allowUnreachableCode": true
   },
