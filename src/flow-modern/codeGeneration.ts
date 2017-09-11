@@ -12,7 +12,8 @@ import {
 import { wrap } from '../utilities/printing';
 
 import {
-  CompilerContext
+  CompilerContext,
+  Operation
 } from '../compiler';
 
 import {
@@ -36,8 +37,8 @@ export function generateSource(context: CompilerContext) {
   });
 
   Object.values(context.operations).forEach(operation => {
-    // generator.interfaceVariablesDeclarationForOperation(operation);
-    // generator.typeDeclarationForOperation(operation);
+    // generator.typeVariablesDeclarationForOperation(operation);
+    generator.typeDeclarationForOperation(operation);
   });
 
   Object.values(context.fragments).forEach(fragment => {
@@ -116,9 +117,77 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
 
     this.typeDeclaration({ typeName: name }, () => {
       const properties = this.propertiesFromFields(Object.values(type.getFields()));
-      // this.propertyDeclarations(properties, true);
+      this.propertyDeclarations(properties, true);
     });
   }
+
+  public typeDeclarationForOperation(operation: Operation) {
+    const typeName = this.typeNameFromOperation(operation);
+
+    const properties = this.propertiesFromFields(fields);
+    this.typeDeclaration(generator, {
+      typeName,
+    }, () => {
+      propertyDeclarations(generator, properties);
+    });
+  }
+
+  private typeNameFromOperation(operation: Operation) {
+    const {
+      operationName,
+      operationType
+    } = operation;
+
+    switch (operationType) {
+      case 'query':
+        return `${operationName}Query`;
+        break;
+      case 'mutation':
+        return `${operationName}Mutation`;
+        break;
+      case 'subscription':
+        return `${operationName}Subscription`;
+        break;
+      default:
+        throw new GraphQLError(`Unsupported operation type "${operationType}"`);
+    }
+  }
+// export function typeDeclarationForOperation(
+//   generator,
+//   {
+//     operationName,
+//     operationType,
+//     variables,
+//     fields,
+//     fragmentSpreads,
+//     fragmentsReferenced,
+//     source,
+//   }
+// ) {
+//   const interfaceName = interfaceNameFromOperation({operationName, operationType});
+//   fields = fields.map(rootField => {
+//     const fields = rootField.fields && rootField.fields.map(field => {
+//       if (field.fieldName === '__typename') {
+//         return {
+//           ...field,
+//           typeName: `"${rootField.type.name}"`,
+//           type: { name: `"${rootField.type.name}"` },
+//         };
+//       }
+//       return field;
+//     });
+//     return {
+//       ...rootField,
+//       fields,
+//     };
+//   });
+//   const properties = propertiesFromFields(generator.context, fields);
+//   typeDeclaration(generator, {
+//     interfaceName,
+//   }, () => {
+//     propertyDeclarations(generator, properties);
+//   });
+// }
 
   public propertiesFromFields(fields: GraphQLInputField[]) {
     return fields.map(field => this.propertyFromField(field));
