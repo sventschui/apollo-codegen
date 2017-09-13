@@ -1,5 +1,10 @@
 import { CompilerContext, SelectionSet, Selection } from '../';
 
+/**
+ * Given a selectionSet, find all of the inline fragments or spread fragments
+ * and merge their types in. If those fragments have field per type condition,
+ * also tag it with the possibleTypes
+ */
 export function mergeInFragmentSpreads(
   context: CompilerContext,
   selectionSet: SelectionSet
