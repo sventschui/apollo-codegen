@@ -53,6 +53,8 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
 
   constructor(context: CompilerContext) {
     super(context);
+
+    this.helpers = new Helpers();
   }
 
   public fileHeader() {
@@ -123,12 +125,12 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
 
   public typeDeclarationForOperation(operation: Operation) {
     const typeName = this.typeNameFromOperation(operation);
+    const properties = this.propertiesFromFields(operation.fields);
 
-    const properties = this.propertiesFromFields(fields);
-    this.typeDeclaration(generator, {
+    this.typeDeclaration({
       typeName,
     }, () => {
-      propertyDeclarations(generator, properties);
+      this.propertyDeclarations(properties);
     });
   }
 
@@ -152,42 +154,6 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
         throw new GraphQLError(`Unsupported operation type "${operationType}"`);
     }
   }
-// export function typeDeclarationForOperation(
-//   generator,
-//   {
-//     operationName,
-//     operationType,
-//     variables,
-//     fields,
-//     fragmentSpreads,
-//     fragmentsReferenced,
-//     source,
-//   }
-// ) {
-//   const interfaceName = interfaceNameFromOperation({operationName, operationType});
-//   fields = fields.map(rootField => {
-//     const fields = rootField.fields && rootField.fields.map(field => {
-//       if (field.fieldName === '__typename') {
-//         return {
-//           ...field,
-//           typeName: `"${rootField.type.name}"`,
-//           type: { name: `"${rootField.type.name}"` },
-//         };
-//       }
-//       return field;
-//     });
-//     return {
-//       ...rootField,
-//       fields,
-//     };
-//   });
-//   const properties = propertiesFromFields(generator.context, fields);
-//   typeDeclaration(generator, {
-//     interfaceName,
-//   }, () => {
-//     propertyDeclarations(generator, properties);
-//   });
-// }
 
   public propertiesFromFields(fields: GraphQLInputField[]) {
     return fields.map(field => this.propertyFromField(field));
@@ -195,7 +161,7 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
 
   private propertyFromField(field: GraphQLField<any, any> | GraphQLInputField) {
     let {
-      name: fieldName,
+      fieldName,
       type: fieldType,
       description: fieldDescription,
     } = field;
