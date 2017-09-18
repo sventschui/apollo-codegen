@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Flow Modern code generation #generateSource() should generate simple query operations 1`] = `
+"/* @flow */
+//  This file was automatically generated and should not be edited.
+
+export type HeroNameQuery ={|
+|};"
+`;

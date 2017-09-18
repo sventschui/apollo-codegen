@@ -7,14 +7,29 @@ import {
   GraphQLList,
   GraphQLNonNull,
   isCompositeType,
+  GraphQLError
 } from 'graphql';
 
 import { wrap } from '../utilities/printing';
 
 import {
   CompilerContext,
-  Operation
+  Operation,
+  SelectionSet,
+  Field
 } from '../compiler';
+
+import {
+  typeCaseForSelectionSet
+} from '../compiler/visitors/typeCase';
+
+// import {
+//   collectFragmentsReferenced
+// } from '../compiler/visitors/collectFragmentsReferenced';
+
+import {
+  collectAndMergeFields
+} from '../compiler/visitors/collectAndMergeFields';
 
 import {
   FlowGenerator,
@@ -23,7 +38,7 @@ import {
 
 import { Helpers } from './helpers';
 
-function isGraphQLInputField(field: GraphQLField<any, any> | GraphQLInputField): field is GraphQLInputField {
+function isGraphQLInputField(field: Field): field is GraphQLInputField {
   return 'defaultValue' in field;
 }
 
@@ -54,7 +69,7 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
   constructor(context: CompilerContext) {
     super(context);
 
-    this.helpers = new Helpers();
+    this.helpers = new Helpers(context.options);
   }
 
   public fileHeader() {
@@ -118,19 +133,44 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
     }
 
     this.typeDeclaration({ typeName: name }, () => {
-      const properties = this.propertiesFromFields(Object.values(type.getFields()));
-      this.propertyDeclarations(properties, true);
+      // const properties = this.propertiesFromFields(Object.values(type.getFields()));
+      // this.propertyDeclarations(properties, true);
     });
   }
 
   public typeDeclarationForOperation(operation: Operation) {
     const typeName = this.typeNameFromOperation(operation);
-    const properties = this.propertiesFromFields(operation.fields);
 
-    this.typeDeclaration({
+    // const fragmentsReferenced = collectFragmentsReferenced(
+    //   operation.selectionSet,
+    //   this.context.fragments
+    // );
+
+    this.typeDeclarationForSelectionSet({
       typeName,
-    }, () => {
-      this.propertyDeclarations(properties);
+      selectionSet: operation.selectionSet
+    });
+  }
+
+  private typeDeclarationForSelectionSet(
+    {
+      typeName,
+      selectionSet
+    }: {
+      typeName: string,
+      selectionSet: SelectionSet
+    }
+  ) {
+    const typeCase = typeCaseForSelectionSet(selectionSet, this.context.options.mergeInFieldsFromFragmentSpreads);
+
+    this.typeDeclaration({ typeName }, () => {
+      const fields = collectAndMergeFields(
+        typeCase.default,
+        this.context.options.mergeInFieldsFromFragmentSpreads
+      );
+      const properties = this.propertiesFromFields(fields as Field[]);
+      console.log(properties)
+      this.propertyDeclarations(properties, true);
     });
   }
 
@@ -155,13 +195,13 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
     }
   }
 
-  public propertiesFromFields(fields: GraphQLInputField[]) {
+  public propertiesFromFields(fields: Field[]) {
     return fields.map(field => this.propertyFromField(field));
   }
 
-  private propertyFromField(field: GraphQLField<any, any> | GraphQLInputField) {
+  private propertyFromField(field: Field) {
     let {
-      fieldName,
+      name: fieldName,
       type: fieldType,
       description: fieldDescription,
     } = field;
@@ -181,7 +221,6 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
 
     if (isCompositeType(getNamedType(fieldType))) {
       const typeName = this.helpers.typeNameFromGraphQLType(fieldType);
-      // TODO: What is going on here?
       let isArray = false;
       let isArrayElementNullable = null;
       if (fieldType instanceof GraphQLList) {
@@ -192,21 +231,13 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
         isArrayElementNullable = !(fieldType.ofType.ofType instanceof GraphQLNonNull);
       }
 
-      // TODO: Figure out what this needs to return ... probably need
-      // to use flattenIR here.
-      return property
+      property.isArray = isArray;
+      property.isArrayElementNullable = isArrayElementNullable;
+      property.isNullable = isNullable;
+
+      return property;
     }
 
-    // fieldName = fieldName || field.responseName;
-
-    // const propertyName = fieldName;
-
-    // let property = { fieldName, fieldType, propertyName, description };
-
-    // let isNullable = true;
-    // if (fieldType instanceof GraphQLNonNull) {
-    //   isNullable = false;
-    // }
     // const namedType = getNamedType(fieldType);
     // if (isCompositeType(namedType)) {
     //   const typeName = typeNameFromGraphQLType(context, fieldType);
