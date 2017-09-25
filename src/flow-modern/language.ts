@@ -67,15 +67,10 @@ export class FlowGenerator<Context> extends CodeGenerator<Context, { typeName: s
       typeName: fieldType,
       description,
       selectionSet,
+      isArray,
+      isArrayElementNullable,
+      isNullable
     } = property;
-
-    console.log(selectionSet);
-    const typeCase = typeCaseForSelectionSet(selectionSet);
-    console.log(
-      JSON.stringify(
-        typeCase.exhaustiveVariants.length
-      )
-    );
 
     let isNullable = true;
     if (fieldType instanceof GraphQLNonNull) {
@@ -85,11 +80,14 @@ export class FlowGenerator<Context> extends CodeGenerator<Context, { typeName: s
     if (description) {
       description.split('\n')
         .forEach(line => {
-          generator.printOnNewline(`// ${line.trim()}`);
+          this.printOnNewline(`// ${line.trim()}`);
         })
     }
 
     if (selectionSet) {
+      const typeCase = typeCaseForSelectionSet(selectionSet);
+      const exhaustiveVariants = typeCase.exhaustiveVariants;
+
       this.printOnNewline(name)
       if (isInput && isNullable) {
         this.print('?')
@@ -110,7 +108,12 @@ export class FlowGenerator<Context> extends CodeGenerator<Context, { typeName: s
 
       this.pushScope({ typeName: name });
 
-      this.withinBlock(closure, open, close);
+      this.withinBlock(() => {
+        exhaustiveVariants.forEach((variant) => {
+          const properties = this.propertiesFromFields(variant.selections);
+          this.propertyDeclarations(this.propertiesFromFields(variant.selections));
+        });
+      }, '{|', '|}');
 
       this.popScope();
 
@@ -122,8 +125,9 @@ export class FlowGenerator<Context> extends CodeGenerator<Context, { typeName: s
       if (isInput && isNullable) {
         this.print('?')
       }
-      console.log('fieldType:', fieldType)
-      this.print(`: ${this.helpers.typeNameFromGraphQLType(fieldType)}`);
+      const typeName = this.helpers.typeNameFromGraphQLType(name, fieldType);
+      console.log(fieldType, typeName);
+      this.print(`: ${typeName}`);
     }
     this.print(',');
     }

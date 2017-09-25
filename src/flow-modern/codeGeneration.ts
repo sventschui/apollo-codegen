@@ -57,7 +57,7 @@ export function generateSource(context: CompilerContext) {
   });
 
   Object.values(context.fragments).forEach(fragment => {
-    console.log(fragment);
+    console.log('Fragment', fragment);
   });
 
   return generator.output;
@@ -220,7 +220,7 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
 
     const isNullable = fieldType instanceof GraphQLNonNull;
 
-    if (isCompositeType(getNamedType(fieldType))) {
+    // if (isCompositeType(getNamedType(fieldType))) {
       const typeName = this.helpers.typeNameFromGraphQLType(fieldType);
       let isArray = false;
       let isArrayElementNullable = null;
@@ -237,36 +237,6 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
       property.isNullable = isNullable;
 
       return property;
-    }
-
-    // const namedType = getNamedType(fieldType);
-    // if (isCompositeType(namedType)) {
-    //   const typeName = typeNameFromGraphQLType(context, fieldType);
-    //   let isArray = false;
-    //   let isArrayElementNullable = null;
-    //   if (fieldType instanceof GraphQLList) {
-    //     isArray = true;
-    //     isArrayElementNullable = !(fieldType.ofType instanceof GraphQLNonNull);
-    //   } else if (fieldType instanceof GraphQLNonNull && fieldType.ofType instanceof GraphQLList) {
-    //     isArray = true;
-    //     isArrayElementNullable = !(fieldType.ofType.ofType instanceof GraphQLNonNull);
-    //   }
-    //   return {
-    //     ...property,
-    //     typeName, fields: field.fields, isComposite: true, fragmentSpreads, inlineFragments, fieldType,
-    //     isArray, isNullable, isArrayElementNullable,
-    //   };
-    // } else {
-    //   if (field.fieldName === '__typename') {
-    //     const typeName = typeNameFromGraphQLType(context, fieldType, null, false);
-    //     return { ...property, typeName, isComposite: false, fieldType, isNullable: false };
-    //   } else {
-    //     const typeName = typeNameFromGraphQLType(context, fieldType, null, isNullable);
-    //     return { ...property, typeName, isComposite: false, fieldType, isNullable };
-    //   }
     // }
   }
-
-
-
 }

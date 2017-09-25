@@ -52,6 +52,10 @@ describe('Flow Modern code generation', function() {
         query HeroName {
           hero {
             name
+
+            ... on Droid {
+              id
+            }
           }
         }
       `);

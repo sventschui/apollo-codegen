@@ -13,43 +13,59 @@ import {
 import { CompilerOptions, Argument } from '../compiler';
 
 const builtInScalarMap = {
-  [GraphQLString.name]: 'String',
-  [GraphQLInt.name]: 'Int',
-  [GraphQLFloat.name]: 'Double',
-  [GraphQLBoolean.name]: 'Bool',
-  [GraphQLID.name]: 'GraphQLID'
+  [GraphQLString.name]: 'string',
+  [GraphQLInt.name]: 'number',
+  [GraphQLFloat.name]: 'number',
+  [GraphQLBoolean.name]: 'boolean',
+  [GraphQLID.name]: 'string'
 };
 
 export class Helpers {
   constructor(public options: CompilerOptions) {}
-
+0
   // Types
-  public typeNameFromGraphQLType(type: GraphQLType, options?: { isOptional?: boolean }): string {
+  public typeNameFromGraphQLType(name: any, type: GraphQLType, options?: { isNullable?: boolean }): string {
     let {
-      isOptional
+      isNullable
     } = Object.assign({
-      isOptional: true
+      isNullable: true
     }, options);
 
+    // if (type instanceof GraphQLNonNull) {
+    //   return this.typeNameFromGraphQLType(type.ofType, { isNullable });
+    // } else if (isNullable === undefined) {
+    //   isNullable = true;
+
+    //   let typeName;
+    //   if (type instanceof GraphQLList) {
+    //     typeName = `Array<${this.typeNameFromGraphQLType(type.ofType)}>`;
+    //   } else if (type instanceof GraphQLScalarType) {
+    //     typeName = builtInScalarMap[type.name] || (
+    //       this.options.passthroughCustomScalars
+    //         ? this.options.customScalarsPrefix + type.name
+    //         : 'any'
+    //     );
+    //   } else {
+    //     typeName = type.name;
+    //   }
+
+    //   return isNullable ? `?${typeName}` : typeName;
+    // }
     if (type instanceof GraphQLNonNull) {
-      return this.typeNameFromGraphQLType(type.ofType, { isOptional });
-    } else if (isOptional === undefined) {
-      isOptional = true;
-
-      let typeName;
-      if (type instanceof GraphQLList) {
-        typeName = `Array<${this.typeNameFromGraphQLType(type.ofType)}>`;
-      } else if (type instanceof GraphQLScalarType) {
-        typeName = builtInScalarMap[type.name] || (
-          this.options.passthroughCustomScalars
-            ? this.options.customScalarsPrefix + type.name
-            : 'any'
-        );
-      } else {
-        typeName = type.name;
-      }
-
-      return isOptional ? `?${typeName}` : typeName;
+      return this.typeNameFromGraphQLType(name, type.ofType, { isNullable: false }));
     }
+
+    let typeName;
+    if (type instanceof GraphQLList) {
+      typeName = `Array<${this.typeNameFromGraphQLType(name, type.ofType)}>`;
+    } else if (type instanceof GraphQLScalarType) {
+      typeName = builtInScalarMap[type.name] || (this.options.passthroughCustomScalars ? context.customScalarsPrefix + type.name : 'any');
+    } else {
+      typeName = type.name;
+    }
+
+    const res = isNullable ? '?' + typeName : typeName;
+    console.log(name, res);
+    return res;
   }
 }
