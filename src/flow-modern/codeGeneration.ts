@@ -169,7 +169,6 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
         this.context.options.mergeInFieldsFromFragmentSpreads
       );
       const properties = this.propertiesFromFields(fields as Field[]);
-      console.log(properties)
       this.propertyDeclarations(properties, true);
     });
   }
@@ -204,12 +203,14 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
       name: fieldName,
       type: fieldType,
       description: fieldDescription,
+      selectionSet,
     } = field;
 
     let property: Property = {
       fieldName,
       typeName: fieldType.toString(),
-      description: fieldDescription
+      description: fieldDescription,
+      selectionSet
     };
 
     let fieldDefaultValue;

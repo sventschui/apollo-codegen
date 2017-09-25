@@ -33,7 +33,7 @@ export function propertyDeclaration(generator, {
   isArrayElementNullable,
   fragmentSpreads,
   isInput
-}, closure, open = ' {|', close = '|}') {
+}, open = ' {|', close = '|}', closure) {
   const name = fieldName || propertyName;
 
   if (description) {

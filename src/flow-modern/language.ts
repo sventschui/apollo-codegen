@@ -9,6 +9,7 @@ import {
 } from 'graphql';
 
 import CodeGenerator from '../utilities/CodeGenerator';
+import { typeCaseForSelectionSet } from '../compiler/visitors/typeCase';
 
 type TypeDeclarationOptions = {
   typeName: string,
@@ -64,8 +65,17 @@ export class FlowGenerator<Context> extends CodeGenerator<Context, { typeName: s
     const {
       fieldName: name,
       typeName: fieldType,
-      description
+      description,
+      selectionSet,
     } = property;
+
+    console.log(selectionSet);
+    const typeCase = typeCaseForSelectionSet(selectionSet);
+    console.log(
+      JSON.stringify(
+        typeCase.exhaustiveVariants.length
+      )
+    );
 
     let isNullable = true;
     if (fieldType instanceof GraphQLNonNull) {
@@ -79,7 +89,7 @@ export class FlowGenerator<Context> extends CodeGenerator<Context, { typeName: s
         })
     }
 
-    if (closure) {
+    if (selectionSet) {
       this.printOnNewline(name)
       if (isInput && isNullable) {
         this.print('?')
@@ -107,7 +117,6 @@ export class FlowGenerator<Context> extends CodeGenerator<Context, { typeName: s
       if (isArray) {
         this.print(' >');
       }
-
     } else {
       this.printOnNewline(name)
       if (isInput && isNullable) {
