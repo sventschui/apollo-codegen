@@ -5,10 +5,13 @@ import {
   GraphQLInputObjectType,
   GraphQLInputField,
   GraphQLList,
+  GraphQLObjectType,
   GraphQLNonNull,
   isCompositeType,
   GraphQLError
 } from 'graphql';
+
+import Helpers from './helpers';
 
 import { wrap } from '../utilities/printing';
 
@@ -36,12 +39,6 @@ import {
   Property
 } from './language';
 
-import { Helpers } from './helpers';
-
-function isGraphQLInputField(field: Field): field is GraphQLInputField {
-  return 'defaultValue' in field;
-}
-
 export function generateSource(context: CompilerContext) {
   const generator = new FlowAPIGenerator(context);
 
@@ -57,7 +54,7 @@ export function generateSource(context: CompilerContext) {
   });
 
   Object.values(context.fragments).forEach(fragment => {
-    console.log('Fragment', fragment);
+    // console.log('Fragment', fragment);
   });
 
   return generator.output;
@@ -88,39 +85,39 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
   private enumerationDeclaration(type: GraphQLEnumType) {
     const { name, description } = type;
     const values = type.getValues();
-
     this.printNewlineIfNeeded();
-    this.comment(description)
-    this.printOnNewline(`export type ${name} =`);
+    this.descriptionComment(description)
+    // TODO: clean this up.
+    this.exportedTypeAliasDeclaration({
+      typeName: name,
+      endingSemi: false,
+      precedingNewLines: false
+    }, () => {
+      this.unionExpression(
+        values.map((value) => {
+          return () => {
+            this.withIndent(() => {
+              const descriptionLines = value.description.trim().split('\n');
 
-    values.forEach((value) => {
-      this.withIndent(() => {
-        const descriptionLines = value.description.trim().split('\n');
+              if (descriptionLines.length > 1) {
+                this.withIndent(() => {
+                  this.descriptionComment(description);
+                });
+              }
 
-        if (descriptionLines.length > 1) {
-          this.withIndent(() => {
-            this.comment(description);
-          });
-        }
+              this.print(`"${value.value}"`);
 
-        this.printOnNewline(`| "${value.value}"`);
-
-        if (descriptionLines.length === 1) {
-          if (value.description.indexOf('\n') === -1) {
-            this.print(wrap(' // ', descriptionLines[0]));
-          }
-        }
-      })
+              if (descriptionLines.length === 1) {
+                if (value.description.indexOf('\n') === -1) {
+                  this.print(wrap(' // ', descriptionLines[0]));
+                }
+              }
+            })
+          };
+        })
+      )
     })
     this.printNewline();
-  }
-
-  private comment(description: string) {
-    const descriptionLines = description.trim().split('\n');
-    descriptionLines
-      .forEach(line => {
-        this.printOnNewline(`// ${line.trim()}`);
-      })
   }
 
   private structDeclarationForInputObjectType(type: GraphQLInputObjectType) {
@@ -132,7 +129,7 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
       this.comment(description);
     }
 
-    this.typeDeclaration({ typeName: name }, () => {
+    this.typeAliasDeclaration({ typeName: name }, () => {
       // const properties = this.propertiesFromFields(Object.values(type.getFields()));
       // this.propertyDeclarations(properties, true);
     });
@@ -152,6 +149,13 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
     });
   }
 
+  private setTypenameField(properties: Property[], possibleTypes: GraphQLObjectType[]) {
+    const i = properties.findIndex(property => property.name === '__typename');
+    properties[i].forceType = possibleTypes
+      .map(type => `"${type.name}"`)
+      .join(' | ');
+  }
+
   private typeDeclarationForSelectionSet(
     {
       typeName,
@@ -163,13 +167,127 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
   ) {
     const typeCase = typeCaseForSelectionSet(selectionSet, this.context.options.mergeInFieldsFromFragmentSpreads);
 
-    this.typeDeclaration({ typeName }, () => {
-      const fields = collectAndMergeFields(
-        typeCase.default,
-        this.context.options.mergeInFieldsFromFragmentSpreads
-      );
-      const properties = this.propertiesFromFields(fields as Field[]);
-      this.propertyDeclarations(properties, true);
+    this.exportedTypeAliasDeclaration({ typeName }, () => {
+      this.objectTypeAnnotation(() => {
+        const fields = collectAndMergeFields(
+          typeCase.default,
+          this.context.options.mergeInFieldsFromFragmentSpreads
+        );
+
+        const properties = this.propertiesFromFields(fields);
+        properties.forEach((property) => {
+          const {
+            name,
+            type,
+            description,
+            selectionSet,
+          } = property;
+
+          const isNullable = !(type instanceof GraphQLNonNull)
+          const objectTypePropertyName = isNullable ? `${name}?` : name;
+
+          if (description) {
+            this.descriptionComment(description);
+          }
+
+          this.objectTypeProperty(objectTypePropertyName, () => {
+            if (!selectionSet) {
+              return;
+            }
+            const typeCase = typeCaseForSelectionSet(selectionSet, this.context.options.mergeInFieldsFromFragmentSpreads);
+            const variants = typeCase.exhaustiveVariants;
+            // Generate ENUM and queue up types to generate.
+            if (variants.length > 1) {
+              this.unionExpression(
+                variants.map(variant => {
+                  let fields = collectAndMergeFields(variant, this.context.options.mergeInFieldsFromFragmentSpreads);
+                  return () => {
+                    this.objectTypeAnnotation(() => {
+                      fields.forEach((field) => {
+                        this.objectTypeProperty(field.name, () => {
+                          if (field.name === '__typename') {
+                            return variant.possibleTypes
+                              .map(type => `"${type.name}"`)
+                              .join(' | ');
+                          } else {
+                            return this.helpers.typeNameFromGraphQLType(field.type);
+                          }
+                        }, {extraIndent: true});
+                      });
+                    }, { extraIndent: true });
+                  };
+                })
+              );
+            } else {
+              const soleVariant = variants[0];
+              let fields = collectAndMergeFields(soleVariant, this.context.options.mergeInFieldsFromFragmentSpreads);
+              this.objectTypeAnnotation(() => {
+                fields.forEach((field) => {
+                  this.objectTypeProperty(field.name, () => {
+                    if (field.name === '__typename') {
+                      return soleVariant.possibleTypes
+                        .map(type => `"${type.name}"`)
+                        .join(' | ');
+                    } else {
+                      return this.helpers.typeNameFromGraphQLType(field.type);
+                    }
+                  });
+                });
+              });
+            };
+          });
+
+          if (property.selectionSet) {
+            const typeName = ([
+              this.helpers.typeNameFromScopeStack(this._scopeStack),
+              name
+            ]).join('_');
+
+            // this.typeDeclarationForSelectionSet(property.selectionSet);
+          }
+
+          // if (selectionSet) {
+          //   this.propertyDeclarationSelectionSet(property, (selectionSet) => {
+          //     const typeCase = typeCaseForSelectionSet(selectionSet);
+          //     const exhaustiveVariants = typeCase.exhaustiveVariants;
+          //     const multipleVariants = exhaustiveVariants.length > 0;
+
+          //     if (multipleVariants) {
+          //       this.print('(');
+          //     }
+
+          //     exhaustiveVariants
+          //       .map(variant => {
+          //         const fields = collectAndMergeFields(variant, this.context.options.mergeInFieldsFromFragmentSpreads);
+          //         const properties = this.propertiesFromFields(fields);
+          //         this.setTypename(properties, variant.possibleTypes);
+          //         return properties;
+          //       })
+          //       .forEach((properties) => {
+          //         this.withIndent(() => {
+          //           if (multipleVariants) {
+          //             this.printNewline();
+          //             this.printIndent();
+          //             this.print('| ');
+          //           }
+
+          //           this.withinBlock(() => {
+          //           });
+          //         })
+          //       })
+
+          //     if (multipleVariants) {
+          //       this.printNewline();
+          //       this.printIndent();
+          //       this.print(')')
+          //     }
+          //   })
+          // } else {
+          //   // this.propertyDeclarationSelection();
+          // }
+        })
+
+      });
     });
   }
 
@@ -194,49 +312,4 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
     }
   }
 
-  public propertiesFromFields(fields: Field[]) {
-    return fields.map(field => this.propertyFromField(field));
-  }
-
-  private propertyFromField(field: Field) {
-    let {
-      name: fieldName,
-      type: fieldType,
-      description: fieldDescription,
-      selectionSet,
-    } = field;
-
-    let property: Property = {
-      fieldName,
-      typeName: fieldType.toString(),
-      description: fieldDescription,
-      selectionSet
-    };
-
-    let fieldDefaultValue;
-    if (isGraphQLInputField(field)) {
-      fieldDefaultValue = field.defaultValue;
-    }
-
-    const isNullable = fieldType instanceof GraphQLNonNull;
-
-    // if (isCompositeType(getNamedType(fieldType))) {
-      const typeName = this.helpers.typeNameFromGraphQLType(fieldType);
-      let isArray = false;
-      let isArrayElementNullable = null;
-      if (fieldType instanceof GraphQLList) {
-        isArray = true;
-        isArrayElementNullable = !(fieldType instanceof GraphQLNonNull);
-      } else if (fieldType instanceof GraphQLNonNull && fieldType.ofType instanceof GraphQLList) {
-        isArray = true;
-        isArrayElementNullable = !(fieldType.ofType.ofType instanceof GraphQLNonNull);
-      }
-
-      property.isArray = isArray;
-      property.isArrayElementNullable = isArrayElementNullable;
-      property.isNullable = isNullable;
-
-      return property;
-    // }
-  }
 }

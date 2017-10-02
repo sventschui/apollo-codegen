@@ -22,6 +22,11 @@ export default class CodeGenerator<Context = any, Scope = any> {
     return this.scopeStack[this.scopeStack.length - 1];
   }
 
+  // Figure out if this really needs to get exposed?
+  get _scopeStack(): Scope[] {
+    return this.scopeStack;
+  }
+
   print(maybeString?: string) {
     if (maybeString) {
       this.output += maybeString;

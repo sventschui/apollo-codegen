@@ -5,22 +5,23 @@ import {
   GraphQLString,
   GraphQLInt,
   GraphQLList,
-  GraphQLNonNull
+  GraphQLNonNull,
+  GraphQ
 } from 'graphql';
 
 import {
   generateSource
-} from '../../src/flow-modern/codeGeneration';
+} from '../codeGeneration';
 
-import { loadSchema } from '../../src/loading';
-const starWarsSchema = loadSchema(require.resolve('../fixtures/starwars/schema.json'));
-const miscSchema = loadSchema(require.resolve('../fixtures/misc/schema.json'));
+import { loadSchema } from '../../loading';
+const starWarsSchema = loadSchema(require.resolve('../../../test/fixtures/starwars/schema.json'));
+const miscSchema = loadSchema(require.resolve('../../../test/fixtures/misc/schema.json'));
 
-import CodeGenerator from '../../src/utilities/CodeGenerator';
+import CodeGenerator from '../../utilities/CodeGenerator';
 
-import { compileToIR } from '../../src/compiler';
+import { compileToIR, Fragment } from '../../compiler';
 
-function setup(schema) {
+function setup(schema: typeof starWarsSchema | typeof miscSchema) {
   const context = {
     schema: schema,
     operations: {},
@@ -30,14 +31,14 @@ function setup(schema) {
 
   const generator = new CodeGenerator(context);
 
-  const compileFromSource = (source) => {
+  const compileFromSource = (source: string) => {
     const document = parse(source);
     const context = compileToIR(schema, document, { mergeInFieldsFromFragmentSpreads: true, addTypename: true } );
     generator.context = context;
     return context;
   };
 
-  const addFragment = (fragment) => {
+  const addFragment = (fragment: Fragment) => {
     generator.context.fragments[fragment.fragmentName] = fragment;
   };
 
@@ -52,10 +53,6 @@ describe('Flow Modern code generation', function() {
         query HeroName {
           hero {
             name
-
-            ... on Droid {
-              id
-            }
           }
         }
       `);
@@ -64,7 +61,6 @@ describe('Flow Modern code generation', function() {
       expect(source).toMatchSnapshot();
     });
 
-    /*
     test(`should generate simple query operations including input variables`, function() {
       const { compileFromSource } = setup(starWarsSchema);
       const context = compileFromSource(`
@@ -96,6 +92,7 @@ describe('Flow Modern code generation', function() {
       expect(source).toMatchSnapshot();
     });
 
+    /*
     test(`should generate simple nested with required elements in lists`, function() {
       const { compileFromSource } = setup(starWarsSchema);
       const context = compileFromSource(`
