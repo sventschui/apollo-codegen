@@ -1,10 +1,12 @@
 import * as fs from 'fs';
+import * as path from 'path';
 
-import { loadSchema, loadAndMergeQueryDocuments } from './loading';
+import { loadSchema, loadSchemaFromConfig, loadAndMergeQueryDocuments } from './loading';
 import { validateQueryDocument } from './validation';
 import { compileToIR } from './compiler';
 import { compileToLegacyIR } from './compiler/legacyIR';
 import serializeToJSON from './serializeToJSON';
+import { GeneratedFile } from './utilities/CodeGenerator'
 import { generateSource as generateSwiftSource } from './swift';
 import { generateSource as generateTypescriptSource } from './typescript';
 import { generateSource as generateFlowSource } from './flow';
@@ -26,22 +28,35 @@ export default function generate(
   inputPaths: string[],
   schemaPath: string,
   outputPath: string,
-  target: keyof typeof TargetType,
+  only: string,
+  target: keyof TargetType,
   tagName: string,
+  projectName: string,
   options: any
 ) {
-  const schema = loadSchema(schemaPath);
+  const schema = schemaPath == null
+    ? loadSchemaFromConfig(projectName)
+    : loadSchema(schemaPath);
 
   const document = loadAndMergeQueryDocuments(inputPaths, tagName);
 
   validateQueryDocument(schema, document);
 
   let output;
-
   if (target === 'swift') {
     options.addTypename = true;
     const context = compileToIR(schema, document, options);
-    output = generateSwiftSource(context);
+
+    const outputIndividualFiles = fs.existsSync(outputPath) && fs.statSync(outputPath).isDirectory();
+
+    const generator = generateSwiftSource(context, outputIndividualFiles, only);
+
+    if (outputIndividualFiles) {
+      writeGeneratedFiles(generator.generatedFiles, outputPath);
+    } else {
+      fs.writeFileSync(outputPath, generator.output);
+    }
+
     if (options.generateOperationIds) {
       writeOperationIdsMap(context);
     }
@@ -49,7 +64,7 @@ export default function generate(
     options.addTypename = true;
     const context = compileToIR(schema, document, options);
     output = generateFlowModernSource(context);
-  } {
+  } else {
     const context = compileToLegacyIR(schema, document, options);
     switch (target) {
       case 'json':
@@ -65,12 +80,21 @@ export default function generate(
       case 'scala':
         output = generateScalaSource(context, options);
     }
-  }
 
-  if (outputPath) {
-    fs.writeFileSync(outputPath, output);
-  } else {
-    console.log(output);
+    if (outputPath) {
+      fs.writeFileSync(outputPath, output);
+    } else {
+      console.log(output);
+    }
+  }
+}
+
+function writeGeneratedFiles(generatedFiles: { [fileName: string]: GeneratedFile }, outputDirectory: string) {
+  if (!fs.existsSync(outputDirectory)) {
+    fs.mkdirSync(outputDirectory);
+  }
+  for (const [fileName, generatedFile] of Object.entries(generatedFiles)) {
+    fs.writeFileSync(path.join(outputDirectory, fileName), generatedFile.output);
   }
 }
 

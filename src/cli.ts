@@ -102,9 +102,8 @@ yargs
     'Generate code from a GraphQL schema and query documents',
     {
       schema: {
-        demand: true,
-        describe: 'Path to GraphQL schema file',
-        default: 'schema.json',
+        demand: false,
+        describe: 'Path to GraphQL schema file. (Defaults to using .graphqlconfig or schema.json)',
         normalize: true,
         coerce: path.resolve,
       },
@@ -118,6 +117,11 @@ yargs
         describe: 'Code generation target language',
         choices: TARGETS,
         default: 'swift'
+      },
+      only: {
+        describe: 'Parse all input files, but only output generated code for the specified file [Swift only]',
+        normalize: true,
+        coerce: path.resolve,
       },
       namespace: {
         demand: false,
@@ -144,6 +148,10 @@ yargs
         demand: false,
         describe: "Name of the template literal tag used to identify template literals containing GraphQL queries in Javascript/Typescript code",
         default: 'gql'
+      },
+      "project-name": {
+        demand: false,
+        describe: "Name of the project to use in a multi-project .graphqlconfig file",
       },
       "operation-ids-path": {
         demand: false,
@@ -181,7 +189,7 @@ yargs
         mergeInFieldsFromFragmentSpreads: argv["merge-in-fields-from-fragment-spreads"]
       };
 
-      generate(inputPaths, argv.schema, argv.output, argv.target, argv.tagName, options);
+      generate(inputPaths, argv.schema, argv.output, argv.only, argv.target, argv.tagName, argv.projectName, options);
     },
   )
   .fail(function(message, error) {
