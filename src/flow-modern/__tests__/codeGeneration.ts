@@ -75,7 +75,7 @@ describe('Flow Modern code generation', function() {
       expect(source).toMatchSnapshot();
     });
 
-    test(`should generate simple nested query operations including input variables`, function() {
+    test.only(`should generate simple nested query operations including input variables`, function() {
       const { compileFromSource } = setup(starWarsSchema);
       const context = compileFromSource(`
         query HeroAndFriendsNames($episode: Episode) {

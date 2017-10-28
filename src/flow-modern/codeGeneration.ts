@@ -19,8 +19,12 @@ import {
   CompilerContext,
   Operation,
   SelectionSet,
-  Field
+  Field,
 } from '../compiler';
+
+import {
+  Variant
+} from '../compiler/visitors/typeCase.ts';
 
 import {
   typeCaseForSelectionSet
@@ -194,101 +198,47 @@ export class FlowAPIGenerator extends FlowGenerator<CompilerContext> {
             if (!selectionSet) {
               return;
             }
+
             const typeCase = typeCaseForSelectionSet(selectionSet, this.context.options.mergeInFieldsFromFragmentSpreads);
             const variants = typeCase.exhaustiveVariants;
+            console.log(variants);
             // Generate ENUM and queue up types to generate.
             if (variants.length > 1) {
               this.unionExpression(
                 variants.map(variant => {
                   let fields = collectAndMergeFields(variant, this.context.options.mergeInFieldsFromFragmentSpreads);
                   return () => {
-                    this.objectTypeAnnotation(() => {
-                      fields.forEach((field) => {
-                        this.objectTypeProperty(field.name, () => {
-                          if (field.name === '__typename') {
-                            return variant.possibleTypes
-                              .map(type => `"${type.name}"`)
-                              .join(' | ');
-                          } else {
-                            return this.helpers.typeNameFromGraphQLType(field.type);
-                          }
-                        }, {extraIndent: true});
-                      });
-                    }, { extraIndent: true });
+                    this.typeObject(fields, variant, { extraIndent: true});
                   };
                 })
               );
             } else {
               const soleVariant = variants[0];
               let fields = collectAndMergeFields(soleVariant, this.context.options.mergeInFieldsFromFragmentSpreads);
-              this.objectTypeAnnotation(() => {
-                fields.forEach((field) => {
-                  this.objectTypeProperty(field.name, () => {
-                    if (field.name === '__typename') {
-                      return soleVariant.possibleTypes
-                        .map(type => `"${type.name}"`)
-                        .join(' | ');
-                    } else {
-                      return this.helpers.typeNameFromGraphQLType(field.type);
-                    }
-                  });
-                });
-              });
+              this.typeObject(fields, soleVariant);
             };
           });
-
-          if (property.selectionSet) {
-            const typeName = ([
-              this.helpers.typeNameFromScopeStack(this._scopeStack),
-              name
-            ]).join('_');
-
-            // this.typeDeclarationForSelectionSet(property.selectionSet);
-          }
-
-          // if (selectionSet) {
-          //   this.propertyDeclarationSelectionSet(property, (selectionSet) => {
-          //     const typeCase = typeCaseForSelectionSet(selectionSet);
-          //     const exhaustiveVariants = typeCase.exhaustiveVariants;
-          //     const multipleVariants = exhaustiveVariants.length > 0;
-
-          //     if (multipleVariants) {
-          //       this.print('(');
-          //     }
-
-          //     exhaustiveVariants
-          //       .map(variant => {
-          //         const fields = collectAndMergeFields(variant, this.context.options.mergeInFieldsFromFragmentSpreads);
-          //         const properties = this.propertiesFromFields(fields);
-          //         this.setTypename(properties, variant.possibleTypes);
-          //         return properties;
-          //       })
-          //       .forEach((properties) => {
-          //         this.withIndent(() => {
-          //           if (multipleVariants) {
-          //             this.printNewline();
-          //             this.printIndent();
-          //             this.print('| ');
-          //           }
-
-          //           this.withinBlock(() => {
-          //           });
-          //         })
-          //       })
-
-          //     if (multipleVariants) {
-          //       this.printNewline();
-          //       this.printIndent();
-          //       this.print(')')
-          //     }
-          //   })
-          // } else {
-          //   // this.propertyDeclarationSelection();
-          // }
         })
-
       });
     });
+  }
+
+  // TODO: Rename to something more appropriate
+  private typeObject(fields: Field[], variant: Variant, options = {}) {
+    this.objectTypeAnnotation(() => {
+      fields.forEach((field) => {
+        this.objectTypeProperty(field.name, () => {
+          if (field.name === '__typename') {
+            return variant.possibleTypes
+              .map((type: GraphQLObjectType) => `"${type.name}"`)
+              .join(' | ');
+          } else {
+            const value = this.helpers.typeNameFromGraphQLType(field.type, this._scopeStack, field);
+            return value;
+          }
+        });
+      });
+    }, options);
   }
 
   private typeNameFromOperation(operation: Operation) {

@@ -158,95 +158,10 @@ export class FlowGenerator<Context> extends CodeGenerator<Context, string> {
     }
   }
 
-  public propertyDeclarations(properties: Property[], isInput: boolean, closure?: (property: Property) => void) {
-    if (!properties) return;
-    properties.forEach(property => {
-      this.propertyDeclaration(property, isInput, closure);
-    });
-  }
-
-  public descriptionComment(description) {
+  public descriptionComment(description: string) {
     return description.split('\n')
       .forEach(line => {
         this.printOnNewline(`// ${line.trim()}`);
       })
   }
-
-  public propertyDeclarationSelectionSet(property: Property, closure: Function) {
-    const {
-      selectionSet
-    } = property;
-
-    if (!(property.type instanceof GraphQLNonNull)) {
-      this.print('?')
-    }
-
-    closure(selectionSet);
-  }
-
-  public propertyDeclarationSelection(property: Property) {
-  }
-
-  public propertyDeclaration(property: Property) {
-    this.printOnNewline(property.name);
-
-    if (!(property.type instanceof GraphQLNonNull)) {
-      // When field is nullable, also allow not requiring this property
-      // to satisfy this type.
-      this.print('?')
-    }
-
-    this.print(': ');
-  }
-
-  // public propertyDeclaration(property: Property, isInput: boolean, closure?: (property: Property) => void) {
-  //   const {
-  //     name,
-  //     type,
-  //     typeName,
-  //     description,
-  //     selectionSet,
-  //   } = property;
-
-  //   if (selectionSet) {
-  //     const typeCase = typeCaseForSelectionSet(selectionSet);
-  //     const exhaustiveVariants = typeCase.exhaustiveVariants;
-
-  //     this.printOnNewline(name)
-  //     if (isInput && isNullable) {
-  //       this.print('?')
-  //     }
-  //     this.print(':')
-  //     if (isNullable) {
-  //       this.print(' ?');
-  //     }
-
-  //     this.pushScope({ typeName: name });
-
-  //     if (closure) {
-  //       closure();
-  //     }
-
-  //     this.withinBlock(() => {
-  //       exhaustiveVariants.forEach((variant) => {
-  //         const properties = this.propertiesFromFields(variant.selections);
-
-  //         this.propertyDeclarations(
-  //           this.propertiesFromFields(variant.selections)
-  //         );
-  //       });
-  //     }, '{|', '|}');
-
-  //     this.popScope();
-  //   } else {
-  //     this.printOnNewline(name)
-  //     if (isInput && isNullable) {
-  //       this.print('?')
-  //     }
-  //     // const typeName = this.helpers.typeNameFromGraphQLType(name, type);
-  //     this.print(`: ${typeName}`);
-  //   }
-  //   this.print(',');
-  //   }
-  // }
 }
