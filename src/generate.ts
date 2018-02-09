@@ -136,7 +136,7 @@ interface OperationIdsMap {
 
 function writeOperationIdsMap(context: any) {
   let operationIdsMap: { [id: string]: OperationIdsMap } = {};
-  Object.values(context.operations).forEach(operation => {
+  Object.values(context.operations).forEach((operation: any) => {
     operationIdsMap[operation.operationId] = {
       name: operation.operationName,
       source: operation.sourceWithFragments
